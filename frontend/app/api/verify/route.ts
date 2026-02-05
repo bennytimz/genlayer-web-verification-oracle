@@ -1,28 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
+function cleanText(text: string) {
+  return text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { url, question } = await req.json();
 
-    // Fetch the webpage content
     const response = await fetch(url);
     const html = await response.text();
+    const pageText = cleanText(html);
 
-    // Remove HTML tags to get clean text
-    const pageText = html.replace(/<[^>]*>/g, " ").toLowerCase();
-    const cleanQuestion = question.toLowerCase();
-
-    const words: string[] = cleanQuestion
+    const keywords = question
+      .toLowerCase()
       .split(" ")
-      .filter((w: string) => w.length > 3);
+      .filter((w: string) => w.length > 4); // only strong words
 
-    const matched = words.filter((w) => pageText.includes(w));
+    let score = 0;
 
-    const answer = matched.length > 2;
+    for (const word of keywords) {
+      if (pageText.includes(word)) {
+        score++;
+      }
+    }
+
+    const answer = score >= 2;
 
     return NextResponse.json({
       answer: answer ? "TRUE" : "FALSE",
-      reasoning: `Matched keywords: ${matched.join(", ")}`,
+      reasoning: `Matched ${score} keyword(s): ${keywords.join(", ")}`,
     });
   } catch (err) {
     return NextResponse.json({
