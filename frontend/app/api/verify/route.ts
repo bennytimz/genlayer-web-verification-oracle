@@ -17,10 +17,19 @@ export async function POST(req: NextRequest) {
   try {
     const { url, question } = await req.json();
 
-    const response = await fetch(url);
+    // ✅ REQUIRED for Vercel to allow external fetch
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch page");
+    }
+
     const html = await response.text();
     const pageText = cleanText(html);
-
     const sentences = splitIntoSentences(pageText);
 
     const qWords = question
@@ -46,17 +55,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // require strong evidence: most keywords must appear in SAME sentence
     const answer = bestMatchScore >= Math.ceil(qWords.length * 0.7);
 
     return NextResponse.json({
       answer: answer ? "TRUE" : "FALSE",
       reasoning: bestSentence || "No supporting sentence found",
     });
-  } catch (err) {
+  } catch (err: any) {
     return NextResponse.json({
       answer: "ERROR",
-      reasoning: "Could not verify the webpage.",
+      reasoning: err.message,
     });
   }
 }
