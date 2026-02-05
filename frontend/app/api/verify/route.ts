@@ -2,19 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 function cleanText(text: string) {
   return text
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .toLowerCase();
 }
 
-function splitSentences(text: string) {
+function splitIntoSentences(text: string) {
   return text.split(/[.!?]/).map(s => s.trim());
-}
-
-function containsNegation(sentence: string) {
-  return /\b(not|never|no|none|neither|nor|without)\b/.test(sentence);
 }
 
 export async function POST(req: NextRequest) {
@@ -24,52 +20,43 @@ export async function POST(req: NextRequest) {
     const response = await fetch(url);
     const html = await response.text();
     const pageText = cleanText(html);
-    const sentences = splitSentences(pageText);
 
-    const keywords = question
+    const sentences = splitIntoSentences(pageText);
+
+    const qWords = question
       .toLowerCase()
       .split(" ")
-      .filter((w: string) => w.length > 3);
+      .filter((w: string) => w.length > 4);
 
+    let bestMatchScore = 0;
     let bestSentence = "";
-    let bestScore = 0;
 
     for (const sentence of sentences) {
       let score = 0;
 
-      for (const word of keywords) {
+      for (const word of qWords) {
         if (sentence.includes(word)) {
           score++;
         }
       }
 
-      if (score > bestScore) {
-        bestScore = score;
+      if (score > bestMatchScore) {
+        bestMatchScore = score;
         bestSentence = sentence;
       }
     }
 
-    const threshold = Math.ceil(keywords.length * 0.6);
-
-    let result = "FALSE";
-
-    if (bestScore >= threshold) {
-      // If sentence matches but contains negation → FALSE
-      if (containsNegation(bestSentence)) {
-        result = "FALSE";
-      } else {
-        result = "TRUE";
-      }
-    }
+    // require strong evidence: most keywords must appear in SAME sentence
+    const answer = bestMatchScore >= Math.ceil(qWords.length * 0.7);
 
     return NextResponse.json({
-      result,
-      details: `Matched sentence: "${bestSentence.slice(0, 120)}..."`,
+      answer: answer ? "TRUE" : "FALSE",
+      reasoning: bestSentence || "No supporting sentence found",
     });
   } catch (err) {
     return NextResponse.json({
-      result: "ERROR",
-      details: "Could not verify the webpage.",
+      answer: "ERROR",
+      reasoning: "Could not verify the webpage.",
     });
   }
 }
