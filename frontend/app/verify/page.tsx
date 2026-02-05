@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 
-export default function VerifyPage() {
+export default function Verify() {
   const [url, setUrl] = useState("");
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState("");
 
-  const handleVerify = async () => {
-    setResult("Verifying...");
+  const verify = async () => {
+    setResult("Checking...");
 
     const res = await fetch("/api/verify", {
       method: "POST",
@@ -17,44 +17,45 @@ export default function VerifyPage() {
     });
 
     const data = await res.json();
-
-    setResult(`
-Answer: ${data.answer}
-
-Reasoning:
-${data.reasoning}
-`);
+    setResult(data.result);
   };
 
   return (
-    <main style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h1>Web Verification Oracle</h1>
+    <main className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white shadow-xl rounded-2xl p-10 max-w-xl w-full">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          Verify a Web Claim
+        </h1>
 
-      <input
-        type="text"
-        placeholder="Paste webpage URL"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        style={{ width: "100%", padding: 10, marginBottom: 10 }}
-      />
+        <input
+          type="text"
+          placeholder="Enter webpage URL"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          className="w-full border p-3 rounded-lg mb-4"
+        />
 
-      <textarea
-        placeholder="Ask your question about the page"
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        style={{ width: "100%", padding: 10, height: 100 }}
-      />
+        <input
+          type="text"
+          placeholder="Enter statement to verify"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          className="w-full border p-3 rounded-lg mb-4"
+        />
 
-      <button
-        onClick={handleVerify}
-        style={{ marginTop: 10, padding: 10 }}
-      >
-        Verify
-      </button>
+        <button
+          onClick={verify}
+          className="w-full bg-black text-white p-3 rounded-lg hover:opacity-80 transition"
+        >
+          Verify
+        </button>
 
-      <pre style={{ marginTop: 20, whiteSpace: "pre-wrap" }}>
-        {result}
-      </pre>
+        {result && (
+          <div className="mt-6 text-center text-xl font-semibold">
+            Result: {result}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
