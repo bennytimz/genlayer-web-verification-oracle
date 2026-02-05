@@ -6,33 +6,53 @@ export default function Verify() {
   const [url, setUrl] = useState("");
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const verify = async () => {
-    setResult("Checking...");
+    if (!url || !question) return;
 
-    const res = await fetch("/api/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, question }),
-    });
+    setLoading(true);
+    setResult("");
 
-    const data = await res.json();
-    setResult(data.result);
+    try {
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, question }),
+      });
+
+      const data = await res.json();
+      setResult(data.result);
+    } catch (err) {
+      setResult("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const resultColor =
+    result === "TRUE"
+      ? "text-green-600"
+      : result === "FALSE"
+      ? "text-red-600"
+      : "text-gray-700";
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white shadow-xl rounded-2xl p-10 max-w-xl w-full">
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          Verify a Web Claim
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200 px-4">
+      <div className="bg-white shadow-2xl rounded-2xl p-10 max-w-xl w-full">
+        <h1 className="text-3xl font-bold mb-2 text-center">
+          Web Claim Verification
         </h1>
+        <p className="text-center text-gray-500 mb-8">
+          Check whether a statement is true or false based on webpage content.
+        </p>
 
         <input
           type="text"
-          placeholder="Enter webpage URL"
+          placeholder="https://example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className="w-full border p-3 rounded-lg mb-4"
+          className="w-full border border-gray-300 focus:border-black focus:outline-none p-3 rounded-lg mb-4"
         />
 
         <input
@@ -40,21 +60,26 @@ export default function Verify() {
           placeholder="Enter statement to verify"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          className="w-full border p-3 rounded-lg mb-4"
+          className="w-full border border-gray-300 focus:border-black focus:outline-none p-3 rounded-lg mb-6"
         />
 
         <button
           onClick={verify}
-          className="w-full bg-black text-white p-3 rounded-lg hover:opacity-80 transition"
+          disabled={loading}
+          className="w-full bg-black text-white p-3 rounded-lg hover:opacity-90 transition disabled:opacity-50"
         >
-          Verify
+          {loading ? "Verifying..." : "Verify Claim"}
         </button>
 
         {result && (
-          <div className="mt-6 text-center text-xl font-semibold">
-            Result: {result}
+          <div className={`mt-8 text-center text-2xl font-bold ${resultColor}`}>
+            {result}
           </div>
         )}
+
+        <p className="text-center text-xs text-gray-400 mt-10">
+          Built by Bennytimz
+        </p>
       </div>
     </main>
   );
