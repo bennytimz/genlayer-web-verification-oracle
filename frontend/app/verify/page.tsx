@@ -3,52 +3,58 @@
 import { useState } from "react";
 
 export default function VerifyPage() {
-  const [pageText, setPageText] = useState("");
+  const [url, setUrl] = useState("");
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState("");
 
   const handleVerify = async () => {
+    setResult("Verifying...");
+
     const res = await fetch("/api/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageText, question }),
+      body: JSON.stringify({ url, question }),
     });
 
     const data = await res.json();
-    setResult(data.result);
+
+    setResult(`
+Answer: ${data.answer}
+
+Reasoning:
+${data.reasoning}
+`);
   };
 
   return (
-    <div className="p-8 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Web Verification Oracle</h1>
-
-      <textarea
-        placeholder="Paste text copied from the webpage here"
-        value={pageText}
-        onChange={(e) => setPageText(e.target.value)}
-        className="border p-2 mb-2 w-full h-40"
-      />
+    <main style={{ padding: 40, fontFamily: "sans-serif" }}>
+      <h1>Web Verification Oracle</h1>
 
       <input
         type="text"
-        placeholder="Enter your question"
+        placeholder="Paste webpage URL"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        style={{ width: "100%", padding: 10, marginBottom: 10 }}
+      />
+
+      <textarea
+        placeholder="Ask your question about the page"
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
-        className="border p-2 mb-2 w-full"
+        style={{ width: "100%", padding: 10, height: 100 }}
       />
 
       <button
         onClick={handleVerify}
-        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+        style={{ marginTop: 10, padding: 10 }}
       >
         Verify
       </button>
 
-      {result && (
-        <div className="border p-4 mt-2 whitespace-pre-wrap">
-          {result}
-        </div>
-      )}
-    </div>
+      <pre style={{ marginTop: 20, whiteSpace: "pre-wrap" }}>
+        {result}
+      </pre>
+    </main>
   );
 }
