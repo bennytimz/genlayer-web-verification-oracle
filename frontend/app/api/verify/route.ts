@@ -9,59 +9,52 @@ function cleanText(text: string) {
     .toLowerCase();
 }
 
+function splitSentences(text: string) {
+  return text.split(/[.!?]/).map(s => s.trim());
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { url, question } = await req.json();
 
-    if (!url || !question) {
-      return NextResponse.json({
-        result: "ERROR",
-        reasoning: "Missing URL or question.",
-      });
-    }
-
-    // Some sites block default fetch headers → mimic a browser
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return NextResponse.json({
-        result: "ERROR",
-        reasoning: `Failed to fetch page. Status: ${response.status}`,
-      });
-    }
-
+    const response = await fetch(url);
     const html = await response.text();
     const pageText = cleanText(html);
 
+    const sentences = splitSentences(pageText);
+
     const keywords = question
       .toLowerCase()
-      .split(/\W+/)
-      .filter((w: string) => w.length > 4);
+      .split(" ")
+      .filter((w: string) => w.length > 3);
 
-    let score = 0;
+    let bestMatchScore = 0;
 
-    for (const word of keywords) {
-      if (pageText.includes(word)) {
-        score++;
+    for (const sentence of sentences) {
+      let score = 0;
+
+      for (const word of keywords) {
+        if (sentence.includes(word)) {
+          score++;
+        }
+      }
+
+      if (score > bestMatchScore) {
+        bestMatchScore = score;
       }
     }
 
-    const isTrue = score >= Math.max(2, Math.floor(keywords.length / 3));
+    const threshold = Math.ceil(keywords.length * 0.6);
+    const answer = bestMatchScore >= threshold;
 
     return NextResponse.json({
-      result: isTrue ? "TRUE" : "FALSE",
-      reasoning: `Matched ${score} keyword(s): ${keywords.join(", ")}`,
+      result: answer ? "TRUE" : "FALSE",
+      details: `Best sentence matched ${bestMatchScore}/${keywords.length} keywords`,
     });
   } catch (err) {
     return NextResponse.json({
       result: "ERROR",
-      reasoning: "Could not verify the webpage.",
+      details: "Could not verify the webpage.",
     });
   }
 }
