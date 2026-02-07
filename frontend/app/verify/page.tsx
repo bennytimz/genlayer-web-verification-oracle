@@ -5,14 +5,16 @@ import { useState } from "react";
 export default function Verify() {
   const [url, setUrl] = useState("");
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [reasoning, setReasoning] = useState("");
   const [loading, setLoading] = useState(false);
 
   const verify = async () => {
     if (!url || !question) return;
 
     setLoading(true);
-    setResult("");
+    setAnswer("");
+    setReasoning("");
 
     try {
       const res = await fetch("/api/verify", {
@@ -22,18 +24,21 @@ export default function Verify() {
       });
 
       const data = await res.json();
-      setResult(data.result);
+
+      setAnswer(data.answer);
+      setReasoning(data.reasoning);
     } catch (err) {
-      setResult("Something went wrong. Please try again.");
+      setAnswer("ERROR");
+      setReasoning("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const resultColor =
-    result === "TRUE"
+    answer === "TRUE"
       ? "text-green-600"
-      : result === "FALSE"
+      : answer === "FALSE"
       ? "text-red-600"
       : "text-gray-700";
 
@@ -71,9 +76,12 @@ export default function Verify() {
           {loading ? "Verifying..." : "Verify Claim"}
         </button>
 
-        {result && (
+        {answer && (
           <div className={`mt-8 text-center text-2xl font-bold ${resultColor}`}>
-            {result}
+            {answer}
+            <p className="text-sm font-normal text-gray-600 mt-2">
+              {reasoning}
+            </p>
           </div>
         )}
 
