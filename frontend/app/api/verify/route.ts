@@ -10,18 +10,37 @@ function cleanText(text: string) {
 }
 
 function splitIntoSentences(text: string) {
-  return text.split(/[.!?]/).map(s => s.trim());
+  return text
+    .split(/[.!?]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 40); // ignore tiny junk
+}
+
+function extractKeywords(question: string) {
+  const stopWords = new Set([
+    "what","when","where","which","there","their","about","would","could",
+    "should","these","those","whose","while","shall","will","from","have",
+    "has","had","been","being","into","onto","than","then","that","this",
+    "with","were","was","are","and","the","for","not","but","you","your",
+    "his","her","its","our","out","who","why","how","can"
+  ]);
+
+  return question
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((w) => w.length > 4 && !stopWords.has(w));
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { url, question } = await req.json();
 
-    // ✅ REQUIRED for Vercel to allow external fetch
+    if (!url || !question) {
+      throw new Error("Missing url or question");
+    }
+
     const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
 
     if (!response.ok) {
@@ -31,40 +50,38 @@ export async function POST(req: NextRequest) {
     const html = await response.text();
     const pageText = cleanText(html);
     const sentences = splitIntoSentences(pageText);
+    const keywords = extractKeywords(question);
 
-    const qWords = question
-      .toLowerCase()
-      .split(" ")
-      .filter((w: string) => w.length > 4);
-
-    let bestMatchScore = 0;
+    let bestScore = 0;
     let bestSentence = "";
 
     for (const sentence of sentences) {
       let score = 0;
 
-      for (const word of qWords) {
+      for (const word of keywords) {
         if (sentence.includes(word)) {
           score++;
         }
       }
 
-      if (score > bestMatchScore) {
-        bestMatchScore = score;
+      if (score > bestScore) {
+        bestScore = score;
         bestSentence = sentence;
       }
     }
 
-    const answer = bestMatchScore >= Math.ceil(qWords.length * 0.7);
+    // Require strong evidence, not loose matches
+    const requiredScore = Math.max(2, Math.ceil(keywords.length * 0.8));
+    const answer = bestScore >= requiredScore;
 
     return NextResponse.json({
       answer: answer ? "TRUE" : "FALSE",
-      reasoning: bestSentence || "No supporting sentence found",
+      reasoning: bestSentence || "No strong supporting sentence found",
     });
   } catch (err: any) {
     return NextResponse.json({
       answer: "ERROR",
-      reasoning: err.message,
+      reasoning: err.message || "Verification failed",
     });
   }
 }
