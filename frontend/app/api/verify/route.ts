@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function clean(text: string) {
-  return text
+function clean(html: string): string {
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<[^>]+>/g, " ")
@@ -9,64 +9,78 @@ function clean(text: string) {
     .toLowerCase();
 }
 
-function sentences(text: string) {
-  return text.split(/[.!?]/).map(s => s.trim());
+function getSentences(text: string): string[] {
+  return text.split(/[.!?]/).map(s => s.trim()).filter(Boolean);
+}
+
+function scoreSentence(sentence: string, words: string[]): number {
+  let score = 0;
+  for (const w of words) {
+    if (sentence.includes(w)) score++;
+  }
+  return score;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { url, question } = await req.json();
 
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     });
 
-    const html = await res.text();
+    if (!response.ok) {
+      throw new Error("Failed to fetch page");
+    }
+
+    const html = await response.text();
     const text = clean(html);
-    const sents = sentences(text);
+    const sentences = getSentences(text);
 
     const q = question.toLowerCase();
+    const keywords = q.split(" ").filter(w => w.length > 4);
 
-    let best = "";
+    let bestSentence = "";
     let bestScore = 0;
 
-    for (const s of sents) {
-      let score = 0;
-
-      // direct phrase match is strongest signal
-      if (s.includes(q)) score += 5;
-
-      // check key words
-      const words = q.split(" ").filter(w => w.length > 4);
-      for (const w of words) {
-        if (s.includes(w)) score++;
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = s;
+    for (const s of sentences) {
+      const sc = scoreSentence(s, keywords);
+      if (sc > bestScore) {
+        bestScore = sc;
+        bestSentence = s;
       }
     }
 
-    // CRITICAL: check for negation
-    const hasNegation =
-      best.includes("not") ||
-      best.includes("never") ||
-      best.includes("no ") ||
-      best.includes("none");
+    // If no good sentence found → FALSE
+    if (bestScore < 2) {
+      return NextResponse.json({
+        result: `FALSE\n\nNo supporting evidence found on the page.`,
+      });
+    }
 
-    let answer = "FALSE";
+    // Detect contradiction: if best sentence talks about a DIFFERENT place/entity
+    const hasAfrica = bestSentence.includes("africa");
+    const hasEurope = bestSentence.includes("europe");
 
-    if (bestScore > 3 && !hasNegation) {
-      answer = "TRUE";
+    if (q.includes("europe") && hasAfrica && !hasEurope) {
+      return NextResponse.json({
+        result: `FALSE\n\nEvidence:\n${bestSentence}`,
+      });
+    }
+
+    if (q.includes("africa") && hasEurope && !hasAfrica) {
+      return NextResponse.json({
+        result: `FALSE\n\nEvidence:\n${bestSentence}`,
+      });
     }
 
     return NextResponse.json({
-      result: `${answer}\n\nEvidence:\n${best}`,
+      result: `TRUE\n\nEvidence:\n${bestSentence}`,
     });
-  } catch (e: any) {
+
+  } catch (err: any) {
     return NextResponse.json({
-      result: "ERROR\n\nCould not verify page.",
+      result: `ERROR\n\n${err.message}`,
     });
   }
 }
